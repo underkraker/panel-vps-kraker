@@ -2,6 +2,12 @@
 
 Panel web para administrar protocolos, puertos y usuarios de ScriptCGH.
 
+## Instalacion rapida (VPS)
+
+```bash
+rm -rf panel-vps-kraker && git clone https://github.com/underkraker/panel-vps-kraker && cd panel-vps-kraker && sudo bash install.sh
+```
+
 ## Requisitos de permisos
 
 Para levantar protocolos, abrir puertos y ejecutar scripts del sistema, el proceso **debe correr con privilegios root**.
