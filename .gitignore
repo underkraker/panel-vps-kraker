@@ -1,0 +1,5 @@
+web-panel/node_modules/
+web-panel/config.json
+web-panel/.env
+web-panel/.env.*
+*.log

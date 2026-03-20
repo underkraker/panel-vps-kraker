@@ -1,0 +1,5 @@
+{
+    "masterPasswordHash": "scrypt$put-salt-here$put-hash-here",
+    "port": 3000,
+    "theme": "dark"
+}

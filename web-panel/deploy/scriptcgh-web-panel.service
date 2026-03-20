@@ -1,0 +1,17 @@
+[Unit]
+Description=ScriptCGH Web Panel
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/kraker/Escritorio/script\x20chumo/web-panel
+ExecStart=/usr/bin/node /home/kraker/Escritorio/script\x20chumo/web-panel/server.js
+Restart=on-failure
+RestartSec=3
+Environment=NODE_ENV=production
+# Optional overrides:
+# Environment=PANEL_PORT=3000
+# Environment=PANEL_PASS=change-this-password
+
+[Install]
+WantedBy=multi-user.target

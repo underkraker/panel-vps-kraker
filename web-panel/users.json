@@ -1,0 +1,24 @@
+[
+  {
+    "user": "admin",
+    "date": "2026-12-31",
+    "limit": "100"
+  },
+  {
+    "user": "premium_user",
+    "date": "2026-06-01",
+    "limit": "5"
+  },
+  {
+    "user": "test_agent",
+    "password": "",
+    "date": "30",
+    "limit": "5"
+  },
+  {
+    "user": "tester",
+    "password": "abc123",
+    "date": "40",
+    "limit": "4"
+  }
+]

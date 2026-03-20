@@ -1,0 +1,18 @@
+# Example sudoers profile for ScriptCGH panel commands.
+# Edit with: visudo -f /etc/sudoers.d/scriptcgh-panel
+# Replace PANEL_USER with your real Linux user.
+
+User_Alias PANEL_USER = panel
+Cmnd_Alias SCRIPTCGH_CMD = \
+    /home/kraker/Escritorio/script\ chumo/setup *, \
+    /home/kraker/Escritorio/script\ chumo/clean_iptables.sh, \
+    /home/kraker/Escritorio/script\ chumo/HTools/sockspy.sh *, \
+    /home/kraker/Escritorio/script\ chumo/HTools/BadVPN/ARM.sh, \
+    /home/kraker/Escritorio/script\ chumo/HTools/LIMITADOR/killSSH.sh, \
+    /home/kraker/Escritorio/script\ chumo/HTools/Python/SocksPY-lite.sh, \
+    /home/kraker/Escritorio/script\ chumo/HTools/CLASH/mt.sh, \
+    /home/kraker/Escritorio/script\ chumo/HTools/CLASH/mt_v2.0.5.sh, \
+    /home/kraker/Escritorio/script\ chumo/HTools/CLASH/ClashForAndroidGLOBAL.sh, \
+    /home/kraker/Escritorio/script\ chumo/HTools/AFK/tumbs.sh
+
+PANEL_USER ALL=(root) NOPASSWD: SCRIPTCGH_CMD
