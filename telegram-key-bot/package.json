@@ -1,0 +1,13 @@
+{
+  "name": "telegram-key-bot",
+  "version": "1.0.0",
+  "description": "Telegram bot for memberships and panel keys",
+  "main": "src/bot.js",
+  "scripts": {
+    "start": "node src/bot.js",
+    "check": "node --check src/bot.js"
+  },
+  "dependencies": {
+    "node-telegram-bot-api": "^0.66.0"
+  }
+}
