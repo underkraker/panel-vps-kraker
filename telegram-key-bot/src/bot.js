@@ -245,7 +245,7 @@ const parseDays = (value) => {
 
 const randomPart = (len) => crypto.randomBytes(Math.ceil(len / 2)).toString('hex').slice(0, len);
 
-const generatePanelKey = () => `NewVPS-${randomPart(30)}:${randomPart(20)}@`;
+const generatePanelKey = () => `KrakerVPS-${randomPart(30)}:${randomPart(20)}@`;
 
 const installerLine = () =>
     CONFIG.installCommand || `apt update -y; apt upgrade -y; wget -q ${CONFIG.panelUrl}/setup; chmod 777 setup; ./setup --ADMcgh`;

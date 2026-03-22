@@ -9,6 +9,43 @@ KEY_API_URL="${KRAKER_KEY_API_URL:-http://127.0.0.1:8799/consume}"
 KEY_API_SECRET="${KRAKER_KEY_SECRET:-kraker-auto-activate-2026}"
 PANEL_VERSION="${KRAKER_PANEL_VERSION:-V3.9.2}"
 CREDENTIALS_API_URL="${KRAKER_CREDENTIALS_API_URL:-${KEY_API_URL%/consume}/panel-credentials}"
+PANEL_RUN_USER="${KRAKER_PANEL_USER:-panelsvc}"
+SUDOERS_FILE="/etc/sudoers.d/kraker-vps-panel"
+
+detect_provider() {
+  local product=""
+  local vendor=""
+  [[ -f /sys/class/dmi/id/product_name ]] && product="$(tr '[:upper:]' '[:lower:]' < /sys/class/dmi/id/product_name)"
+  [[ -f /sys/class/dmi/id/sys_vendor ]] && vendor="$(tr '[:upper:]' '[:lower:]' < /sys/class/dmi/id/sys_vendor)"
+
+  if [[ "${product} ${vendor}" == *"amazon"* ]] || [[ "${vendor}" == *"ec2"* ]]; then
+    echo "aws"
+    return
+  fi
+  if [[ "${product} ${vendor}" == *"google"* ]]; then
+    echo "gcp"
+    return
+  fi
+  if [[ "${product} ${vendor}" == *"microsoft"* ]] || [[ "${product} ${vendor}" == *"azure"* ]]; then
+    echo "azure"
+    return
+  fi
+  if [[ "${product} ${vendor}" == *"digitalocean"* ]]; then
+    echo "digitalocean"
+    return
+  fi
+  if [[ "${product} ${vendor}" == *"kvm"* ]] || [[ "${product} ${vendor}" == *"qemu"* ]]; then
+    echo "generic-vps"
+    return
+  fi
+  echo "unknown"
+}
+
+PROVIDER="$(detect_provider)"
+USE_DELEGATED_SUDO=0
+if [[ "${PROVIDER}" == "aws" || "${PROVIDER}" == "gcp" || "${PROVIDER}" == "azure" || "${PROVIDER}" == "digitalocean" || "${PROVIDER}" == "generic-vps" ]]; then
+  USE_DELEGATED_SUDO=1
+fi
 
 json_escape() {
   local value="${1:-}"
@@ -30,7 +67,7 @@ fi
 
 echo "[1/8] Instalando dependencias base..."
 apt-get update -y
-apt-get install -y curl ca-certificates gnupg
+apt-get install -y curl ca-certificates gnupg sudo
 
 echo "[2/8] Validando key de instalacion..."
 read -r -p "Ingresa tu KEY: " PANEL_KEY
@@ -67,6 +104,25 @@ if [[ "${HTTP_CODE}" != "200" ]]; then
 fi
 rm -f "${TMP_RESP}"
 echo "[OK] KEY validada correctamente."
+
+if [[ "${USE_DELEGATED_SUDO}" -eq 1 ]]; then
+  echo "[INFO] Entorno detectado: ${PROVIDER}. Se habilitara modo cloud con sudo delegado."
+
+  if ! id -u "${PANEL_RUN_USER}" >/dev/null 2>&1; then
+    useradd -m -s /usr/sbin/nologin "${PANEL_RUN_USER}"
+  fi
+
+  chown -R "${PANEL_RUN_USER}:${PANEL_RUN_USER}" "${REPO_DIR}"
+
+  cat > "${SUDOERS_FILE}" <<EOF
+${PANEL_RUN_USER} ALL=(root) NOPASSWD: /bin/bash ${REPO_DIR}/privileged-runner.sh *
+EOF
+  chmod 440 "${SUDOERS_FILE}"
+
+  if command -v visudo >/dev/null 2>&1; then
+    visudo -c -f "${SUDOERS_FILE}" >/dev/null
+  fi
+fi
 
 echo "[3/8] Generando password aleatoria del panel..."
 PANEL_PASS="$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 16)"
@@ -118,6 +174,9 @@ Restart=on-failure
 RestartSec=3
 Environment=NODE_ENV=production
 Environment=PANEL_PASS=${PANEL_PASS}
+Environment=PANEL_SUDO_MODE=$( [[ "${USE_DELEGATED_SUDO}" -eq 1 ]] && echo "auto" || echo "off" )
+$( [[ "${USE_DELEGATED_SUDO}" -eq 1 ]] && echo "User=${PANEL_RUN_USER}" )
+$( [[ "${USE_DELEGATED_SUDO}" -eq 1 ]] && echo "Group=${PANEL_RUN_USER}" )
 
 [Install]
 WantedBy=multi-user.target
@@ -155,3 +214,6 @@ echo "URL local: http://localhost:3000"
 echo "Si usas firewall, abre el puerto 3000/TCP."
 echo "Password generada: ${PANEL_PASS}"
 echo "Credenciales guardadas en: ${PASS_FILE}"
+if [[ "${USE_DELEGATED_SUDO}" -eq 1 ]]; then
+  echo "Modo cloud activo: servicio corre como ${PANEL_RUN_USER} con sudoers limitado."
+fi

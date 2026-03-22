@@ -9,6 +9,8 @@ const app = express();
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 const IS_ROOT = typeof process.getuid === 'function' ? process.getuid() === 0 : false;
 const ALLOW_NON_ROOT = process.env.PANEL_ALLOW_NON_ROOT === '1';
+const SUDO_MODE_AUTO = process.env.PANEL_SUDO_MODE === 'auto';
+const PRIVILEGED_RUNNER = path.join(PROJECT_ROOT, 'privileged-runner.sh');
 const FORCE_HTTPS = process.env.PANEL_FORCE_HTTPS === '1';
 const ENABLE_SYSTEM_USERS = process.env.PANEL_SYSTEM_USERS === '1';
 
@@ -156,12 +158,15 @@ const clearLoginFailures = (ip) => {
 };
 
 const getPrivilegeState = () => {
-    const canManageSystem = IS_ROOT || ALLOW_NON_ROOT;
+    const canUseSudoRunner = SUDO_MODE_AUTO && fs.existsSync(PRIVILEGED_RUNNER);
+    const canManageSystem = IS_ROOT || ALLOW_NON_ROOT || canUseSudoRunner;
     return {
         rootRequired: true,
         isRoot: IS_ROOT,
         canManageSystem,
-        mode: canManageSystem ? (IS_ROOT ? 'root' : 'allow-non-root') : 'restricted'
+        mode: canManageSystem
+            ? (IS_ROOT ? 'root' : (ALLOW_NON_ROOT ? 'allow-non-root' : 'sudo-delegated'))
+            : 'restricted'
     };
 };
 
@@ -315,48 +320,90 @@ const PROTOCOL_CATALOG = [
         id: 'v2ray',
         group: 'tunnels',
         name: 'V2Ray / VLESS',
-        description: 'Gestiona V2Ray y VLESS desde setup',
+        description: 'Gestiona servicios Xray/V2Ray y puertos',
         portLabel: '443',
         status: { type: 'port', value: 443 },
         actions: [
-            { id: 'start', label: 'Iniciar', command: 'setup', args: ['--v2ray'] },
-            { id: 'settings', label: 'Ajustes', message: 'Ajustes avanzados pendientes para V2Ray / VLESS.' }
+            { id: 'start', label: 'Iniciar', command: 'protocol-manager.sh', args: ['v2ray', 'start'] },
+            { id: 'stop', label: 'Detener', command: 'protocol-manager.sh', args: ['v2ray', 'stop'] },
+            { id: 'restart', label: 'Reiniciar', command: 'protocol-manager.sh', args: ['v2ray', 'restart'] },
+            { id: 'open-ports', label: 'Abrir puertos', command: 'protocol-manager.sh', args: ['v2ray', 'open-ports'] },
+            { id: 'status', label: 'Estado', command: 'protocol-manager.sh', args: ['v2ray', 'status'] }
         ]
     },
     {
         id: 'trojan',
         group: 'tunnels',
         name: 'Trojan',
-        description: 'Gestiona Trojan desde setup',
+        description: 'Gestiona servicios Trojan/Trojan-go y puertos',
         portLabel: '8443',
         status: { type: 'port', value: 8443 },
         actions: [
-            { id: 'start', label: 'Iniciar', command: 'setup', args: ['--trojan'] },
-            { id: 'settings', label: 'Ajustes', message: 'Ajustes avanzados pendientes para Trojan.' }
+            { id: 'start', label: 'Iniciar', command: 'protocol-manager.sh', args: ['trojan', 'start'] },
+            { id: 'stop', label: 'Detener', command: 'protocol-manager.sh', args: ['trojan', 'stop'] },
+            { id: 'restart', label: 'Reiniciar', command: 'protocol-manager.sh', args: ['trojan', 'restart'] },
+            { id: 'open-ports', label: 'Abrir puertos', command: 'protocol-manager.sh', args: ['trojan', 'open-ports'] },
+            { id: 'status', label: 'Estado', command: 'protocol-manager.sh', args: ['trojan', 'status'] }
         ]
     },
     {
         id: 'ssh-dropbear',
         group: 'tunnels',
         name: 'SSH / Dropbear',
-        description: 'Reinicia servicios SSH y Dropbear desde setup',
+        description: 'Gestiona SSH, Dropbear, Stunnel y puertos',
         portLabel: '22, 143',
         status: { type: 'port', value: 22 },
         actions: [
-            { id: 'restart', label: 'Reiniciar', command: 'setup', args: ['--ssh'] },
-            { id: 'settings', label: 'Ajustes', message: 'Ajustes avanzados pendientes para SSH / Dropbear.' }
+            { id: 'start', label: 'Iniciar', command: 'protocol-manager.sh', args: ['ssh', 'start'] },
+            { id: 'stop', label: 'Detener', command: 'protocol-manager.sh', args: ['ssh', 'stop'] },
+            { id: 'restart', label: 'Reiniciar', command: 'protocol-manager.sh', args: ['ssh', 'restart'] },
+            { id: 'open-ports', label: 'Abrir puertos', command: 'protocol-manager.sh', args: ['ssh', 'open-ports'] },
+            { id: 'status', label: 'Estado', command: 'protocol-manager.sh', args: ['ssh', 'status'] }
         ]
     },
     {
         id: 'shadowsocks',
         group: 'tunnels',
         name: 'Shadowsocks',
-        description: 'Gestiona Shadowsocks desde setup',
+        description: 'Gestiona Shadowsocks y puertos',
         portLabel: '8388',
         status: { type: 'port', value: 8388 },
         actions: [
-            { id: 'start', label: 'Iniciar', command: 'setup', args: ['--shadowsocks'] },
-            { id: 'settings', label: 'Ajustes', message: 'Ajustes avanzados pendientes para Shadowsocks.' }
+            { id: 'start', label: 'Iniciar', command: 'protocol-manager.sh', args: ['shadowsocks', 'start'] },
+            { id: 'stop', label: 'Detener', command: 'protocol-manager.sh', args: ['shadowsocks', 'stop'] },
+            { id: 'restart', label: 'Reiniciar', command: 'protocol-manager.sh', args: ['shadowsocks', 'restart'] },
+            { id: 'open-ports', label: 'Abrir puertos', command: 'protocol-manager.sh', args: ['shadowsocks', 'open-ports'] },
+            { id: 'status', label: 'Estado', command: 'protocol-manager.sh', args: ['shadowsocks', 'status'] }
+        ]
+    },
+    {
+        id: 'slowdns',
+        group: 'tunnels',
+        name: 'SlowDNS (DNSTT)',
+        description: 'Gestiona dnstt-server y puerto UDP 5300',
+        portLabel: '5300/udp',
+        status: { type: 'process', value: 'dnstt-server' },
+        actions: [
+            { id: 'start', label: 'Iniciar', command: 'protocol-manager.sh', args: ['slowdns', 'start'] },
+            { id: 'stop', label: 'Detener', command: 'protocol-manager.sh', args: ['slowdns', 'stop'] },
+            { id: 'restart', label: 'Reiniciar', command: 'protocol-manager.sh', args: ['slowdns', 'restart'] },
+            { id: 'open-ports', label: 'Abrir puertos', command: 'protocol-manager.sh', args: ['slowdns', 'open-ports'] },
+            { id: 'status', label: 'Estado', command: 'protocol-manager.sh', args: ['slowdns', 'status'] }
+        ]
+    },
+    {
+        id: 'squid',
+        group: 'tunnels',
+        name: 'Squid Proxy',
+        description: 'Gestiona Squid y puertos del proxy',
+        portLabel: '8080',
+        status: { type: 'port', value: 8080 },
+        actions: [
+            { id: 'start', label: 'Iniciar', command: 'protocol-manager.sh', args: ['squid', 'start'] },
+            { id: 'stop', label: 'Detener', command: 'protocol-manager.sh', args: ['squid', 'stop'] },
+            { id: 'restart', label: 'Reiniciar', command: 'protocol-manager.sh', args: ['squid', 'restart'] },
+            { id: 'open-ports', label: 'Abrir puertos', command: 'protocol-manager.sh', args: ['squid', 'open-ports'] },
+            { id: 'status', label: 'Estado', command: 'protocol-manager.sh', args: ['squid', 'status'] }
         ]
     },
     {
@@ -429,11 +476,16 @@ const PROTOCOL_CATALOG = [
         id: 'badvpn',
         group: 'tunnels',
         name: 'BadVPN (UDP)',
-        description: 'Compila e inicia badvpn-udpgw para UDP',
-        portLabel: '7200',
-        status: { type: 'port', value: 7200 },
+        description: 'Gestiona badvpn-udpgw y puerto UDP 7300',
+        portLabel: '7300/udp',
+        status: { type: 'process', value: 'badvpn-udpgw' },
         actions: [
-            { id: 'configure', label: 'Configurar', command: 'HTools/BadVPN/ARM.sh', args: [] }
+            { id: 'start', label: 'Iniciar', command: 'protocol-manager.sh', args: ['badvpn', 'start'] },
+            { id: 'stop', label: 'Detener', command: 'protocol-manager.sh', args: ['badvpn', 'stop'] },
+            { id: 'restart', label: 'Reiniciar', command: 'protocol-manager.sh', args: ['badvpn', 'restart'] },
+            { id: 'open-ports', label: 'Abrir puertos', command: 'protocol-manager.sh', args: ['badvpn', 'open-ports'] },
+            { id: 'status', label: 'Estado', command: 'protocol-manager.sh', args: ['badvpn', 'status'] },
+            { id: 'compile', label: 'Compilar', command: 'HTools/BadVPN/ARM.sh', args: [] }
         ]
     },
     {
@@ -494,6 +546,7 @@ const PROTOCOL_CATALOG = [
 
 const ALLOWED_COMMANDS = {
     setup: { argPattern: /^$|^--(v2ray|trojan|ssh|shadowsocks)$/ },
+    'protocol-manager.sh': { argPattern: /^(ssh|v2ray|trojan|shadowsocks|badvpn|slowdns|squid) (start|stop|restart|status|open-ports)$/ },
     'clean_iptables.sh': { argPattern: /^$/ },
     'HTools/sockspy.sh': { argPattern: /^[1-6]$/ },
     'HTools/BadVPN/ARM.sh': { argPattern: /^$/ },
@@ -589,15 +642,16 @@ const executeAllowedCommand = (command, rawArgs, options = {}) => {
             return;
         }
 
-        const fullPath = path.resolve(PROJECT_ROOT, command);
         const args = normalized ? normalized.split(/\s+/) : [];
-        const isScript = /\.sh$/.test(command) || command === 'setup';
-        const program = isScript ? '/bin/bash' : fullPath;
-        const finalArgs = isScript ? [fullPath, ...args] : args;
+        const useSudoDelegated = !IS_ROOT && !ALLOW_NON_ROOT && SUDO_MODE_AUTO;
+        const program = useSudoDelegated ? '/bin/bash' : '/bin/bash';
+        const finalArgs = useSudoDelegated
+            ? [PRIVILEGED_RUNNER, command, ...args]
+            : [path.resolve(PROJECT_ROOT, command), ...args];
 
         const child = execFile(program, finalArgs, { cwd: PROJECT_ROOT, timeout: options.timeout || COMMAND_TIMEOUT_MS }, (error, stdout, stderr) => {
             if (error) {
-                reject(new Error(stderr || error.message));
+                reject(new Error(stderr || stdout || error.message));
                 return;
             }
             resolve(stdout || stderr || 'Comando completado exitosamente.');
